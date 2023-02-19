@@ -1,0 +1,163 @@
+npm install @metaplex-foundation/js fs
+npm install @metaplex-foundation/mpl-token-metadata
+import {
+  Metaplex,
+  keypairIdentity,
+  bundlrStorage,
+  toMetaplexFile,
+} from "@metaplex-foundation/js"
+import {
+  DataV2,
+  createCreateMetadataAccountV2Instruction,
+  createUpdateMetadataAccountV2Instruction,
+} from "@metaplex-foundation/mpl-token-metadata"
+import * as fs from "fs"
+toMetaplexFile(GOAT)
+metaplex.storage().upload
+metaplex.uploadMetadata()
+findMetadataPda()
+DataV2
+createCreateMetadataAccountV2Instruction
+async function createTokenMetadata(
+  connection: web3.Connection,
+  metaplex: Metaplex,
+  mint: web3.PublicKey,
+  user: web3.Keypair,
+  name: string,
+  symbol: string,
+  description: string
+) {
+  // file to buffer
+  const buffer = fs.readFileSync("assets/pizza.png")
+ // buffer to metaplex file
+  const file = toMetaplexFile(buffer, "pizza.png")
+
+  // upload image and get image uri
+  const imageUri = await metaplex.storage().upload(file)
+  console.log("image uri:", imageUri)
+
+  // upload metadata and get metadata uri (off chain metadata)
+  const { uri } = await metaplex
+    .nfts()
+    .uploadMetadata({
+      name: name,
+      description: description,
+      image: imageUri,
+    })
+ 
+  console.log("metadata uri:", uri)
+// get metadata account address
+  const metadataPDA = metaplex.nfts().pdas().metadata({mint})
+
+  // onchain metadata format
+  const tokenMetadata = {
+    name: name,
+    symbol: symbol,
+    uri: uri,
+    sellerFeeBasisPoints: 0,
+    creators: null,
+    collection: null,
+    uses: null,
+  } as DataV2
+
+  // transaction to create metadata account
+  const transaction = new web3.Transaction().add(
+    createCreateMetadataAccountV2Instruction(
+    {
+        metadata: metadataPDA,
+        mint: mint,
+        mintAuthority: user.publicKey,
+        payer: user.publicKey,
+        updateAuthority: user.publicKey,
+      },
+      {
+        createMetadataAccountArgsV2: {
+          data: tokenMetadata,
+          isMutable: true,
+        },
+      }
+    )
+  )
+
+  // send transaction
+  const transactionSignature = await web3.sendAndConfirmTransaction(
+    connection,
+    transaction,
+    [user]
+  )
+  console.log(
+    `Create Metadata Account: https://explorer.solana.com/tx/${transactionSignature}?cluster=devnet`
+  )
+}
+async function main() {
+  const connection = new web3.Connection(web3.clusterApiUrl("devnet"))
+  const user = await initializeKeypair(connection)
+
+  console.log("PublicKey:", user.publicKey.toBase58())
+
+  // MAKE SURE YOU REPLACE THIS ADDRESS WITH YOURS!
+  const MINT_ADDRESS = "87MGWR6EbAqegYXr3LoZmKKC9fSFXQx4EwJEAczcMpMF"
+
+  // metaplex setup
+  const metaplex = Metaplex.make(connection)
+    .use(keypairIdentity(user))
+    .use(
+      bundlrStorage({
+        address: "https://devnet.bundlr.network",
+        providerUrl: "https://api.devnet.solana.com",
+        timeout: 60000,
+      })
+    )
+    // Calling the token 
+  await createTokenMetadata(
+    connection,
+    metaplex,
+    new web3.PublicKey(MINT_ADDRESS),
+    user,
+    "Pizza", // Token name - REPLACE THIS WITH YOURS
+    "PZA",     // Token symbol - REPLACE THIS WITH YOURS
+    "Whoever holds this token is invited to my pizza party" // Token description - REPLACE THIS WITH YOURS
+  )
+}
+> solana-course-client@1.0.0 start
+> ts-node src/index.ts
+
+Current balance is 1.996472479
+PublicKey: 5y3G3Rz5vgK9rKRxu3BaC3PvhsMKGyAmtcizgrxojYAA
+image uri: https://arweave.net/7sDCnvGRJAqfgEuGOYWhIshfgTC-hNfG4NSjwsKunQs
+metadata uri: https://arweave.net/-2vGrM69PNtb2YaHnOErh1_006D28JJa825CIcEGIok
+Create Metadata Account: https://explorer.solana.com/tx/4w8XEGCJY82MnBnErW9F5r1i5UL5ffJCCujcgFeXS8TTdZ6tHBEMznWnPoQXVcsPY3WoPbL2Nb1ubXCUJWWt2GWi?cluster=devnet
+Finished successfully
+async function updateTokenMetadata(
+  connection: web3.Connection,
+  metaplex: Metaplex,
+  mint: web3.PublicKey,
+  user: web3.Keypair,
+  name: string,
+  symbol: string,
+  description: string
+) {
+
+  ... 
+  
+  // transaction to update metadata account
+  const transaction = new web3.Transaction().add(
+    createUpdateMetadataAccountV2Instruction(
+      {
+        metadata: metadataPDA,
+        updateAuthority: user.publicKey,
+      },
+      {
+        updateMetadataAccountArgsV2: {
+          data: tokenMetadata,
+          updateAuthority: user.publicKey,
+          primarySaleHappened: true,
+          isMutable: true,
+        },
+      }
+    )
+  )
+  
+  // Everything else remains the same
+  ...
+}
